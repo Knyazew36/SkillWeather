@@ -1,29 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from './components/Modal/Modal';
 function App() {
   const [inputValue, setInputValue] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [userPosition, setUserPosition] = useState({});
   const [modalActive, setModalActive] = useState(false);
   const [modalText, setModalText] = useState('');
-
   const [weather, setWeather] = useState('');
+  const [isButtonDisabled, setButtonDisabled] = useState(true);
 
   const userGeolocation = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         function (position) {
           const { latitude, longitude } = position.coords;
-          setLatitude(latitude);
-          setLongitude(longitude);
-          console.log('Геопозиция получена');
+          setUserPosition({ latitude, longitude });
+          setButtonDisabled(false);
         },
         function (error) {
-          console.log('Ошибка получения геопозиции:', error.message);
+          modalHandler(`'Ошибка получения геопозиции:', ${error.message}`);
         }
       );
     } else {
-      console.log('Геолокация не поддерживается в этом браузере.');
+      modalHandler('Геолокация не поддерживается в этом браузере.');
     }
   };
 
@@ -31,69 +29,95 @@ function App() {
     if (!text) return;
     setModalText(text);
     setModalActive(true);
+    setInputValue('');
+    setTimeout(() => {
+      setModalActive(false);
+    }, 2000);
   };
 
   const weatherData = (city) => {
+    const { latitude, longitude } = userPosition;
+
     const APIKey = 'cac0a063696021a70d5b1e61dd40fb2c';
     const URL = city
       ? `https://api.openweathermap.org/data/2.5/weather?q=${inputValue}&appid=${APIKey}&units=metric&lang=ru`
       : `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${APIKey}&lang=ru&units=metric&cnt=5`;
 
     fetch(URL)
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Response status was not OK');
+        }
+        return response.json();
+      })
       .then((data) => setWeather({ data }))
-      .catch((error) => console.log(error));
+      .catch((error) =>
+        modalHandler(`Произошла ошибка при получении данных ${error}`)
+      );
   };
 
-  // console.log(weather);
   return (
     <>
       {modalActive && (
         <Modal setModalActive={setModalActive}>{modalText}</Modal>
       )}
-      <form
-        className=' bg-red-400 w-full block'
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!inputValue) {
-            modalHandler('test');
-            return;
-          } else {
-            weatherData(true);
-          }
-        }}
-      >
-        <input
-          type='text'
-          placeholder='Введите адрес'
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-        ></input>
-        <button type='submit'>Получить погоду по запросу</button>
-      </form>
-
-      <button
-        type='button'
-        className='btn btn-primary'
-        onClick={() => {
-          userGeolocation();
-        }}
-      >
-        Получить ваше местоплоложение
-      </button>
-      <button type='text' onClick={() => weatherData()}>
-        Получить погоду по геопозиции
-      </button>
-
-      {weather && (
-        <div>
-          <p>Город: {weather.data.name} </p>
-          <p>Олачность: {weather.data.base} </p>
-          <p>Температура: {weather.data.main.temp} </p>
-          <p>Минимальная температура: {weather.data.main.temp_min} </p>
-          <p>На улице: {weather.data.weather[0].description} </p>
+      <div className='flex justify-center flex-col w-[30%] gap-10 m-auto'>
+        <form
+          className='input w-full flex flex-col gap-4 pt-4'
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!inputValue) {
+              modalHandler('Пожалуйста, ведите название города');
+              return;
+            } else {
+              weatherData(true);
+            }
+          }}
+        >
+          <input
+            type='text'
+            placeholder='Введите название города'
+            value={inputValue}
+            className='form-control'
+            onChange={(e) => setInputValue(e.target.value)}
+          ></input>
+          <button type='submit' className='btn btn-primary'>
+            Получить погоду по запросу
+          </button>
+        </form>
+        <div className='flex gap-4'>
+          <button
+            type='button'
+            className='btn btn-primary'
+            onClick={() => {
+              userGeolocation();
+            }}
+          >
+            Получить ваше местоплоложение
+          </button>
+          <button
+            type='button'
+            className='btn btn-success'
+            disabled={isButtonDisabled}
+            onClick={() =>
+              userPosition
+                ? weatherData()
+                : modalHandler('Для начала необходимо получить вашу геопозицию')
+            }
+          >
+            Получить погоду по геопозиции
+          </button>
         </div>
-      )}
+        {weather && (
+          <div>
+            <p>Город: {weather.data.name} </p>
+            <p>Олачность: {weather.data.base} </p>
+            <p>Температура: {weather.data.main?.temp} </p>О
+            <p>Минимальная температура: {weather.data.main.temp_min} </p>
+            <p>На улице: {weather.data.weather[0].description} </p>
+          </div>
+        )}
+      </div>
     </>
   );
 }
