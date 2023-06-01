@@ -12,7 +12,9 @@
   align-items: center;
   gap: 20px;
   text-align: center;
+  z-index: 4;
 }
+
 .overlay {
   position: fixed;
   background: black;
